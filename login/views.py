@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from . import models
-from .forms import OrderForm
-
+from .forms import OrderForm, CreateUserForm
+from django.forms import inlineformset_factory
+from .filters import OrderFilter
+from django.contrib.auth.forms import UserCreationForm
 
 # Create your views here.
 
@@ -29,28 +31,54 @@ def products(request):
     return render(request, 'login/products.html', {'products': products})
 
 
+def login(request):
+    context = {}
+    return render(request, 'login/login.html', context)
+
+
+def register(request):
+    form = CreateUserForm()
+    context = {'form': form}
+
+    if request.method == 'POST':
+        form = CreateUserForm(request.POST)
+        if form.is_valid():
+            form.save()
+
+
+    return render(request, 'login/register.html', context)
+
+
 def customer(request, pk_test):
     customer = models.Customer.objects.get(id=pk_test)
     orders = customer.order_set.all()
     total_order = orders.count()
+    myFilter = OrderFilter(request.GET, queryset=orders)
+    orders = myFilter.qs
+
     context = {
         'customer': customer,
         'orders': orders,
         'total_order': total_order,
+        'myFilter': myFilter,
     }
     return render(request, 'login/customer.html', context)
 
 
-def createOrder(request):
-    form = OrderForm
+def createOrder(request, pk):
+    OrderFormSet = inlineformset_factory(models.Customer, models.Order, fields=('product', 'status'))
+    customer = models.Customer.objects.get(id=pk)
+    formset = OrderFormSet(instance=customer)
+    # form = OrderForm(initial={'customer': customer})
     if request.method == 'POST':
-        form = OrderForm(request.POST)
-        if form.is_valid():
-            form.save()
+        # form = OrderForm(request.POST)
+        formset = OrderFormSet(request.POST, instance=customer)
+        if formset.is_valid():
+            formset.save()
             return redirect('/')
 
     context = {
-        'form': form,
+        'formset': formset,
     }
     return render(request, 'login/createOrder.html', context)
 
@@ -74,7 +102,7 @@ def deleteOrder(request, pk):
     order = models.Order.objects.get(id=pk)
     if request.method == 'POST':
         order.delete()
-        return  redirect('/')
+        return redirect('/')
 
     context = {
         'item': order,

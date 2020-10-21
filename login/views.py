@@ -81,6 +81,9 @@ def register(request):
             username = form.cleaned_data.get('username')
             group = Group.objects.get(name='customer')
             user.groups.add(group)
+            customer.objects.create(
+                user=user,
+            )
             messages.success(request, 'Account was created for ' + username)
             return redirect('loginuser')
 

@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from . import models
-from .forms import OrderForm, CreateUserForm
+from .forms import OrderForm, CreateUserForm, CustomerForm
 from django.forms import inlineformset_factory
 from .filters import OrderFilter
 from django.contrib.auth.forms import UserCreationForm
@@ -37,8 +37,15 @@ def home(request):
 @allowed_users(allowed_roles=['customer'])
 def userPage(request):
     orders = request.user.customer.order_set.all()
+    total_order = orders.count()
+    delivered = orders.filter(status='Delivered').count()
+    pending = orders.filter(status='Pending').count()
+    context = {'orders': orders,
+               'total_order': total_order,
+               'delivered': delivered,
+               'pending': pending
 
-    context = {'orders': orders}
+               }
     return render(request, 'login/user.html', context)
 
 
@@ -79,11 +86,6 @@ def register(request):
         if form.is_valid():
             user = form.save()
             username = form.cleaned_data.get('username')
-            group = Group.objects.get(name='customer')
-            user.groups.add(group)
-            customer.objects.create(
-                user=user,
-            )
             messages.success(request, 'Account was created for ' + username)
             return redirect('loginuser')
 
@@ -158,3 +160,18 @@ def deleteOrder(request, pk):
         'item': order,
     }
     return render(request, 'login/delete.html', context)
+
+
+@login_required(login_url='loginuser')
+@allowed_users(allowed_roles=['customer'])
+def accountSettings(request):
+    customer = request.user.customer
+    form = CustomerForm(instance=customer)
+
+    if request.method == 'POST':
+        form = CustomerForm(request.POST, request.FILES, instance=customer)
+        if form.is_valid():
+            form.save()
+
+    context = {'form': form}
+    return render(request, 'login/account_setting.html', context)
